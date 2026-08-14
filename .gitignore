@@ -1,0 +1,18 @@
+# glib-compile-schemas 산출물. 설치 시 생성하므로 커밋하지 않는다.
+schemas/gschemas.compiled
+
+# 패키징 결과물
+*.shell-extension.zip
+
+# 편집/백업 찌꺼기
+*.bak
+*.orig
+*.rej
+*~
+*.swp
+.#*
+
+# 에디터/OS
+.vscode/
+.idea/
+.DS_Store
