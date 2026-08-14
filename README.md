@@ -42,6 +42,22 @@ The extension only touches four Shell APIs (`PanelMenu.Button`, the
 `Extension.getSettings()`), none of which changed between 45 and 50. Everything
 else it uses is GIO/GLib, UPower and `org.gnome.ScreenSaver` over D-Bus.
 
+## Requirements
+
+- **GNOME Shell 50** (see above).
+- **systemd**, for `systemd-run`, `systemctl --user` and `systemd-inhibit`.
+  Distributions without it (runit, OpenRC, s6) cannot hold the lock at all.
+- **UPower**, for lid state. Without it the screen-off feature is unavailable;
+  suspend blocking still works.
+
+There is no way to declare these in `metadata.json` — GNOME only checks
+`shell-version` — so the extension checks them itself on load and reports what
+is missing in its menu, disabling the switches it cannot honour.
+
+Note that suspend blocking rests on the logind inhibitor, not on the gsd-power
+keys. Those keys are overwritten as a second line of defence and are reported
+upstream to be a no-op on some versions.
+
 ## Usage
 
 Click the sun icon in the top bar:

@@ -26,6 +26,9 @@ const INHIBIT_WHAT = 'handle-lid-switch:sleep:idle';
 // 셸 프로세스가 아니라 이 유닛이 락의 단일 진실 소스다.
 const UNIT = 'lid-awake-inhibit.service';
 
+// 없으면 락을 잡을 수 없는 실행 파일들
+const REQUIRED_PROGRAMS = ['systemd-run', 'systemctl', 'systemd-inhibit'];
+
 // 덮개 상태는 logind 가 아니라 UPower 가 프로퍼티로 노출한다.
 const UPOWER = {
     name: 'org.freedesktop.UPower',
@@ -73,11 +76,11 @@ class LidAwakeIndicator extends PanelMenu.Button {
             ext.settings.set_boolean('keep-screen-on', state));
         this.menu.addMenuItem(screenItem);
 
-        const blankItem = new PopupMenu.PopupSwitchMenuItem(
+        this._blankItem = new PopupMenu.PopupSwitchMenuItem(
             '덮으면 화면 끄기', ext.settings.get_boolean('blank-on-lid-close'));
-        blankItem.connect('toggled', (_item, state) =>
+        this._blankItem.connect('toggled', (_item, state) =>
             ext.settings.set_boolean('blank-on-lid-close', state));
-        this.menu.addMenuItem(blankItem);
+        this.menu.addMenuItem(this._blankItem);
 
         const restoreItem = new PopupMenu.PopupSwitchMenuItem(
             '로그인 시 상태 유지', ext.settings.get_boolean('restore-state'));
@@ -102,7 +105,12 @@ class LidAwakeIndicator extends PanelMenu.Button {
         });
     }
 
-    sync(active, detail) {
+    sync(active, detail, deps) {
+        // 못 하는 일은 스위치를 잠가 둔다. 눌러도 안 되는 토글보다
+        // 왜 안 되는지 상태줄에 적힌 편이 낫다.
+        this._toggle.setSensitive(deps.systemd);
+        this._blankItem.setSensitive(deps.upower);
+
         this._icon.icon_name = active ? ICON_ON : ICON_OFF;
         // 활성 시 강조
         if (active)
@@ -120,10 +128,19 @@ export default class LidAwakeExtension extends Extension {
         this._power = new Gio.Settings({schema_id: POWER_SCHEMA});
         this._session = new Gio.Settings({schema_id: SESSION_SCHEMA});
 
-        this._indicator = new Indicator(this);
-        Main.panel.addToStatusArea(this.uuid, this._indicator, 0, 'right');
+        // 확장 메타데이터에는 의존성을 선언할 수단이 없다. 셸이 확인해 주는 건
+        // shell-version 뿐이라, 필요한 것들은 여기서 직접 확인한다.
+        this._deps = {
+            systemd: REQUIRED_PROGRAMS.every(
+                p => GLib.find_program_in_path(p) !== null),
+            upower: false,
+        };
 
         this._watchLid();
+        this._deps.upower = Boolean(this._upower);
+
+        this._indicator = new Indicator(this);
+        Main.panel.addToStatusArea(this.uuid, this._indicator, 0, 'right');
 
         // 유닛이 셸보다 오래 살아남으므로, 시작 시점의 진실은 설정이 아니라 유닛이다.
         if (this._lockRunning()) {
@@ -135,7 +152,8 @@ export default class LidAwakeExtension extends Extension {
             // 락이 없다 = 절전이 살아 있다. 남아 있는 백업이 있으면 원상 복구.
             this._restoreOriginals();
 
-            const wanted = this.settings.get_boolean('active') &&
+            const wanted = this._deps.systemd &&
+                           this.settings.get_boolean('active') &&
                            this.settings.get_boolean('restore-state');
             if (wanted)
                 this._apply(true);
@@ -157,10 +175,15 @@ export default class LidAwakeExtension extends Extension {
         this._indicator = null;
         this._power = null;
         this._session = null;
+        this._deps = null;
         this.settings = null;
     }
 
     setActive(state) {
+        if (!this._deps.systemd) {
+            this._sync();
+            return;
+        }
         this._apply(state);
         this.settings.set_boolean('active', state);
         this._sync();
@@ -231,6 +254,8 @@ export default class LidAwakeExtension extends Extension {
     // 로그아웃 때는 user manager 가 유닛을 정리하므로 기본 동작으로 돌아간다.
 
     _lockRunning() {
+        if (!this._deps.systemd)
+            return false;
         return this._spawn(
             ['systemctl', '--user', 'is-active', '--quiet', UNIT]) === 0;
     }
@@ -346,9 +371,19 @@ export default class LidAwakeExtension extends Extension {
 
     _sync() {
         const active = this.settings.get_boolean('active');
-        const detail = active
-            ? (this._lockRunning() ? '덮개 닫힘·유휴 절전 차단됨' : '차단 실패 — 로그 확인')
-            : '시스템 기본 동작';
-        this._indicator?.sync(active, detail);
+        let detail;
+        if (!this._deps.systemd)
+            detail = 'systemd 없음 — 절전 차단 불가';
+        else if (!active)
+            detail = '시스템 기본 동작';
+        else
+            detail = this._lockRunning()
+                ? '덮개 닫힘·유휴 절전 차단됨'
+                : '차단 실패 — 로그 확인';
+
+        if (this._deps.systemd && !this._deps.upower)
+            detail += '\nUPower 없음 — 화면 끄기 불가';
+
+        this._indicator?.sync(active, detail, this._deps);
     }
 }
