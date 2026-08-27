@@ -6,6 +6,10 @@
       <default>false</default>
       <summary>깨어 있기 활성 상태</summary>
     </key>
+    <key name="toggle-shortcut" type="as">
+      <default><![CDATA[['<Super><Shift>l']]]></default>
+      <summary>깨어 있기 토글 단축키</summary>
+    </key>
     <key name="keep-screen-on" type="b">
       <default>false</default>
       <summary>활성 시 화면도 끄지 않음</summary>

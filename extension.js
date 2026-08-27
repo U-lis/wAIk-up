@@ -1,6 +1,8 @@
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -42,6 +44,9 @@ const SCREENSAVER = {
     path: '/org/gnome/ScreenSaver',
     iface: 'org.gnome.ScreenSaver',
 };
+
+// 토글 단축키를 담은 설정 키. Main.wm.addKeybinding 이 키 이름으로 찾아간다.
+const SHORTCUT_KEY = 'toggle-shortcut';
 
 const ICON_ON = 'weather-clear-symbolic';
 const ICON_OFF = 'weather-clear-night-symbolic';
@@ -89,6 +94,10 @@ class LidAwakeIndicator extends PanelMenu.Button {
         this.menu.addMenuItem(restoreItem);
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+        const shortcutItem = new PopupMenu.PopupMenuItem('단축키 설정…');
+        shortcutItem.connect('activate', () => ext.openPreferences());
+        this.menu.addMenuItem(shortcutItem);
 
         const prefsItem = new PopupMenu.PopupMenuItem('시스템 전원 설정…');
         prefsItem.connect('activate', () => {
@@ -142,6 +151,8 @@ export default class LidAwakeExtension extends Extension {
         this._indicator = new Indicator(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator, 0, 'right');
 
+        this._bindShortcut();
+
         // 유닛이 셸보다 오래 살아남으므로, 시작 시점의 진실은 설정이 아니라 유닛이다.
         if (this._lockRunning()) {
             // 셸이 크래시했다 살아난 경우. 락이 그대로 있으니 상태를 채택하고
@@ -169,6 +180,7 @@ export default class LidAwakeExtension extends Extension {
         // unlock-dialog 를 넣어 뒀다. 여기 도달했다면 실제 비활성화/로그아웃이다.
         this._apply(false);
 
+        this._unbindShortcut();
         this._unwatchLid();
 
         this._indicator?.destroy();
@@ -187,6 +199,35 @@ export default class LidAwakeExtension extends Extension {
         this._apply(state);
         this.settings.set_boolean('active', state);
         this._sync();
+    }
+
+    // ---- 단축키 ----
+
+    _bindShortcut() {
+        // 단축키가 비어 있으면 셸이 등록을 건너뛴다(사용자가 지운 경우).
+        Main.wm.addKeybinding(
+            SHORTCUT_KEY, this.settings,
+            Meta.KeyBindingFlags.NONE,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+            () => this._onShortcut());
+    }
+
+    _unbindShortcut() {
+        Main.wm.removeKeybinding(SHORTCUT_KEY);
+    }
+
+    _onShortcut() {
+        // 아이콘을 안 보고 누르는 경로라, 설정값이 아니라 실제 유닛 상태를
+        // 기준으로 뒤집는다. 밖에서 유닛이 멈췄어도 한 번에 맞는 방향으로 간다.
+        const running = this._lockRunning();
+        this.setActive(!running);
+        this._showOsd(this.settings.get_boolean('active'));
+    }
+
+    _showOsd(active) {
+        const icon = Gio.ThemedIcon.new(active ? ICON_ON : ICON_OFF);
+        Main.osdWindowManager.show(
+            -1, icon, active ? '깨어 있기 켬' : '깨어 있기 끔', null);
     }
 
     // 실제 유닛 상태를 다시 읽어 UI/설정을 맞춘다.

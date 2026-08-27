@@ -68,6 +68,27 @@ Click the sun icon in the top bar:
 | **덮으면 화면 끄기** (Blank on lid close) | Turns the screen off when the lid closes, without suspending. On by default. |
 | **화면도 끄지 않기** (Keep screen on) | Never blanks the screen. Overrides the option above. |
 | **로그인 시 상태 유지** (Restore on login) | Re-enables the toggle after login. Off by default. |
+| **단축키 설정…** (Shortcut settings) | Opens the preferences window described below. |
+
+### Keyboard shortcut
+
+The master toggle is also bound to a keyboard shortcut, `Super+Shift+L` by
+default. The shortcut flips the *actual* inhibitor unit state, not the stored
+setting, so it stays correct even if the unit was stopped from the command
+line. An OSD shows the resulting state.
+
+To change it, open **단축키 설정…** from the menu (or the gear icon in the
+Extensions app), click the row, and press the new combination. `Backspace`
+clears the shortcut, `Esc` cancels. The row warns if the combination is already
+taken by the window manager, the shell, mutter, gsd-media-keys, or a user-defined
+shortcut.
+
+Changing the shortcut takes effect immediately — no re-login. It can also be
+set without the GUI:
+
+```sh
+gsettings set org.gnome.shell.extensions.lid-awake toggle-shortcut "['<Super><Shift>k']"
+```
 
 ## How it works
 
