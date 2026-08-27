@@ -2,6 +2,7 @@
 
 ![GNOME Shell 50](https://img.shields.io/badge/GNOME%20Shell-50-4A86CF)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
+![Version: 0.1.0](https://img.shields.io/badge/version-0.1.0-blue)
 
 Keep your laptop awake while AI agents are working.
 
