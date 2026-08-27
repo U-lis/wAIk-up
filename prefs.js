@@ -7,7 +7,7 @@ import Gtk from 'gi://Gtk';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 const SHORTCUT_KEY = 'toggle-shortcut';
-const DEFAULT_ACCEL = '<Super><Shift>l';
+const HINT = '눌러서 새 조합을 지정, Backspace 로 해제';
 
 // 충돌을 훑어볼 스키마. 여기 없는 곳(앱 자체 단축키 등)의 충돌은 잡지 못한다.
 const CONFLICT_SCHEMAS = [
@@ -84,7 +84,7 @@ class LidAwakeShortcutRow extends Adw.ActionRow {
     _init(settings) {
         super._init({
             title: '깨어 있기 토글',
-            subtitle: '눌러서 새 조합을 지정합니다',
+            subtitle: HINT,
             activatable: true,
         });
         this._settings = settings;
@@ -94,16 +94,6 @@ class LidAwakeShortcutRow extends Adw.ActionRow {
             valign: Gtk.Align.CENTER,
         });
         this.add_suffix(this._label);
-
-        this._reset = new Gtk.Button({
-            icon_name: 'edit-clear-symbolic',
-            tooltip_text: '기본값으로',
-            valign: Gtk.Align.CENTER,
-            css_classes: ['flat'],
-        });
-        this._reset.connect('clicked', () => this._set(DEFAULT_ACCEL));
-        this.add_suffix(this._reset);
-        this.set_activatable_widget(null);
 
         this.connect('activated', () => this._openCapture());
 
@@ -133,7 +123,7 @@ class LidAwakeShortcutRow extends Adw.ActionRow {
         const conflict = findConflict(accel);
         this.subtitle = conflict
             ? `충돌: ${conflict}`
-            : '눌러서 새 조합을 지정합니다';
+            : HINT;
     }
 
     _openCapture() {
